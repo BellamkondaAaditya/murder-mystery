@@ -3,336 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Murder Mystery Enforcer</title>
+    <title>Helvetia Air - Secure Manifest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { background-color: #0f172a; color: white; }
-        .character-card {
-            background-image: repeating-linear-gradient(45deg, #1e293b 0, #1e293b 10px, #0f172a 10px, #0f172a 20px);
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Oswald:wght@400;700&display=swap');
+        
+        body { 
+            background-color: #111827; 
+            color: #e5e7eb; 
+            font-family: 'Share Tech Mono', monospace;
+            background-image: 
+                linear-gradient(rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.9)),
+                url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
         }
+
+        .header-font { font-family: 'Oswald', sans-serif; }
+        
+        .flight-border {
+            border: 1px solid #374151;
+            border-left: 4px solid #ef4444;
+            background: rgba(31, 41, 55, 0.5);
+        }
+
+        .ticket-notch {
+            background-image: radial-gradient(circle at 0 50%, transparent 8px, #1f2937 9px);
+            background-size: 100% 100%;
+            background-position: 0 0;
+        }
+
+        /* Animations */
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .blink-text { animation: blink 2s infinite; }
+
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-entry { animation: slideIn 0.5s ease-out forwards; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import React, { useState } from 'https://esm.sh/react@18.2.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
-        import { Users, Trash2, Plus, Share2, Lock, Copy, RefreshCw, ExternalLink, UserCheck } from 'https://esm.sh/lucide-react@0.263.1';
+        import { Plane, Lock, ShieldAlert, Eye, AlertTriangle, Briefcase, User, MapPin, FileText, X } from 'https://esm.sh/lucide-react@0.263.1';
 
-        function MurderMysteryApp() {
-            // --- STATE ---
-            const [mode, setMode] = useState('loading'); // loading, admin, player
-            const [isAdminAuth, setIsAdminAuth] = useState(false);
-            const [password, setPassword] = useState('');
-            
-            // Admin Data
-            const [characters, setCharacters] = useState([]);
-            const [assignments, setAssignments] = useState({}); 
-            
-            // Player Data
-            const [myRole, setMyRole] = useState(null);
+        // --- DATA SOURCE [cite: 1-226] ---
+        const FLIGHT_MANIFEST = {
+            "X001": {
+                name: "Captain Elias Morgan",
+                role: "The Captain",
+                seat: "COCKPIT",
+                who: "You are the captain of Helvetia Air Flight HX721. Calm, professional, and trusted by your crew, you take pride in a spotless safety record.",
+                motive: "You resent management for cost-cutting and risking safety, but you had no personal quarrel with Dr Malhotra.",
+                suspicion: "You control the cockpit, information flow, and logs. You decided to divert to Baku. If people suspect a cover-up, they look at you.",
+                item: "Flight Technical Logs"
+            },
+            "A003": {
+                name: "Rohan Mehta",
+                role: "Investigative Journalist",
+                seat: "22A",
+                who: "Freelance journalist covering health and inequality. You recognized Dr Malhotra and saw the flight as an opportunity to observe him.",
+                motive: "You are researching rumors about data misuse and a stolen algorithm linked to his institute. Exposing him is a big story.",
+                suspicion: "You sat where you could watch him. Your notes look hostile. People mistrust journalists with 'an angle.'",
+                item: "Investigative Notebook"
+            },
+            "M005": {
+                name: "Dr. Leena Arora",
+                role: "Medical Researcher",
+                seat: "24A",
+                isKiller: true, 
+                who: "You are a cardiology researcher. Dr Malhotra's network took and exploited your diagnostic algorithm. His fame rose while you were erased.",
+                motive: "You feel deeply betrayed. You believe what you did is a form of justice, even if the world calls it murder.",
+                suspicion: "You have the expertise to cause a medically plausible death. Evidence of your shared past exists. Your anger may leak through.",
+                item: "Old Conference Badge"
+            },
+            "Z007": {
+                name: "Julien Mercier",
+                role: "Art Dealer",
+                seat: "23C",
+                who: "Suave art dealer in modern works. You are used to dodging awkward questions about provenance and taxes.",
+                motive: "No known relationship. He is just another potential client in your world.",
+                suspicion: "You operate in grey areas. You carry a strange vial with residue. You are visibly nervous about official scrutiny.",
+                item: "Small Vial with Residue"
+            },
+            "X009": {
+                name: "Sofia Dimitriou",
+                role: "Celebrity Chef",
+                seat: "25C",
+                who: "Celebrity chef en route to Europe. Proud, opinionated, and very serious about your craft.",
+                motive: "No history with him. He is just another passenger to you.",
+                suspicion: "You travel with a professional knife roll. You are defensive about your bags. Knives make people think of murder.",
+                item: "Professional Knife Roll"
+            },
+            "A011": {
+                name: "Ava Sinclair",
+                role: "The Influencer",
+                seat: "22B",
+                who: "Social media influencer who vlogs travel. You film constantly and live for engagement.",
+                motive: "You didn't know him. Your motive is clicks, not killing.",
+                suspicion: "You filmed almost everything. People suspect you are hiding clips for 'exclusive content' or dramatizing the narrative.",
+                item: "Vlogging Camera & Phone"
+            },
+            "M013": {
+                name: "Clara Weiss",
+                role: "Anxious Flyer",
+                seat: "23D",
+                who: "Corporate lawyer and nervous flyer. You hate turbulence and watch every movement in the cabin.",
+                motive: "You never met him. Your real problem is your own anxiety.",
+                suspicion: "You carry strong prescription meds. You were seen taking pills. Stress makes your recollections shaky.",
+                item: "Blister Pack of Anxiety Meds"
+            },
+            "Z015": {
+                name: "Priya Nair",
+                role: "Risk Officer / Legal",
+                seat: "Business / Roaming",
+                who: "In-house counsel for Dr Malhotra's institute. Your job is to manage risk and make messy problems go away.",
+                motive: "You need him alive to sign settlements. However, you have documents about paying off a 'former collaborator'.",
+                suspicion: "You work for his institute. You have hush-money documents. You knew more than anyone about his enemies.",
+                item: "Confidential Legal Files"
+            },
+            "X017": {
+                name: "Bernard Holt",
+                role: "Retired Detective",
+                seat: "25D",
+                who: "Retired homicide detective on holiday. You instinctively slip into 'work mode' when you hear about sudden death.",
+                motive: "No motive. He is a stranger. You know you didn't do it, but no one else has reason to believe you.",
+                suspicion: "Your background is 'convenient'. You are calm, which looks cold. You have the skills to manipulate evidence.",
+                item: "Old Police Badge (Hidden)"
+            },
+            "A019": {
+                name: "Maya Laurent",
+                role: "Senior Cabin Crew",
+                seat: "Cabin Service",
+                who: "Senior flight attendant. Good at reading people and keeping things calm.",
+                motive: "You received an anonymous warning before the flight but dismissed it. You feel guilty, not murderous.",
+                suspicion: "You handled his drinks. If the warning is revealed, it looks like you had advance knowledge.",
+                item: "Crew Manifest / Warning Note"
+            },
+            "M021": {
+                name: "Hiro Tanaka",
+                role: "Environmental Lawyer",
+                seat: "25A",
+                who: "Lawyer specializing in corporate accountability. Calm and principled.",
+                motive: "You are working a case against a project involving Malhotra's network. You want to bring him down legally.",
+                suspicion: "You have ideological opposition to him. A text on your phone mentions 'bringing him down'.",
+                item: "Legal Case Files"
+            },
+            "Z023": {
+                name: "Thomas Vellani",
+                role: "The Businessman",
+                seat: "23A",
+                who: "Businessman in 'logistics'. You move high-value goods, sometimes skirting rules.",
+                motive: "You worry data transparency (like Malhotra's work) could threaten your operations. You prefer creative accounting to violence.",
+                suspicion: "Your documents show shady activity. You moved up and down the aisle often.",
+                item: "Logistics Documents"
+            },
+            "X025": {
+                name: "Samhita Aravind",
+                role: "Graduate Student",
+                seat: "24C",
+                who: "Master's student in public policy. You pick out patterns and take quiet notes on people.",
+                motive: "You are critical of corporate abuse but didn't know him personally.",
+                suspicion: "You sat very close. You take notes on people, which looks intrusive. Past NGO work might look like you target his type.",
+                item: "Book of Observations"
+            },
+            "A027": {
+                name: "Farah Khan",
+                role: "Junior Flight Attendant",
+                seat: "Aft Jumpseat",
+                who: "Junior crew, eager to prove yourself. Shaken by the death.",
+                motive: "He was rude to you. You drafted a complaint, but it was just frustration.",
+                suspicion: "You were closest to him during service. You have the draft complaint. You were aware of 'odd' warnings.",
+                item: "Notepad with Draft Complaint"
+            },
+            "M029": {
+                name: "Omar Haddad",
+                role: "Music Producer",
+                seat: "22C",
+                who: "Charismatic producer with big stories and patchy finances.",
+                motive: "Your track was used for his charity event but you weren't paid. You feel exploited.",
+                suspicion: "You were seen arguing with him. You carry a suspicious bag of white powder (supplements).",
+                item: "Bag of White Powder"
+            }
+        };
 
-            // Admin UI
-            const [newChar, setNewChar] = useState({ name: '', backstory: '' });
-            const [newAssign, setNewAssign] = useState({ player: '', charId: '' });
+        function App() {
+            const [code, setCode] = useState('');
+            const [profile, setProfile] = useState(null);
+            const [error, setError] = useState('');
 
-            // --- INITIALIZATION ---
-            useEffect(() => {
-                // 1. Check for Incoming Invite Link (URL Params)
-                const params = new URLSearchParams(window.location.search);
-                const inviteData = params.get('invite');
-
-                if (inviteData) {
-                    try {
-                        // Decode and SAVE to local storage (The "Sticky" part)
-                        const decoded = JSON.parse(atob(inviteData));
-                        localStorage.setItem('mm-my-role', JSON.stringify(decoded));
-                        
-                        // Clean the URL so it looks professional (removes the long code)
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                        
-                        setMyRole(decoded);
-                        setMode('player');
-                        return;
-                    } catch (e) {
-                        console.error("Bad Link");
-                    }
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const cleanCode = code.trim().toUpperCase();
+                if (FLIGHT_MANIFEST[cleanCode]) {
+                    setProfile(FLIGHT_MANIFEST[cleanCode]);
+                    setError('');
+                } else {
+                    setError('INVALID CLEARANCE CODE');
+                    setTimeout(() => setError(''), 2000);
                 }
-
-                // 2. Check if Player already has a saved role
-                const savedRole = localStorage.getItem('mm-my-role');
-                if (savedRole) {
-                    setMyRole(JSON.parse(savedRole));
-                    setMode('player');
-                    return;
-                }
-
-                // 3. Check if Admin Data exists
-                const savedChars = localStorage.getItem('mm-characters');
-                const savedAssigns = localStorage.getItem('mm-assignments');
-                if (savedChars) setCharacters(JSON.parse(savedChars));
-                if (savedAssigns) setAssignments(JSON.parse(savedAssigns));
-                
-                // Default to Admin login if no player data found
-                setMode('admin_login');
-            }, []);
-
-            // --- ADMIN LOGIC ---
-            const saveAdminData = (chars, assigns) => {
-                setCharacters(chars);
-                setAssignments(assigns);
-                localStorage.setItem('mm-characters', JSON.stringify(chars));
-                localStorage.setItem('mm-assignments', JSON.stringify(assigns));
             };
 
-            const addCharacter = () => {
-                if (!newChar.name) return;
-                const updated = [...characters, { id: Date.now(), ...newChar }];
-                saveAdminData(updated, assignments);
-                setNewChar({ name: '', backstory: '' });
-            };
-
-            const deleteCharacter = (id) => {
-                const updatedChars = characters.filter(c => c.id !== id);
-                const updatedAssigns = { ...assignments };
-                Object.keys(updatedAssigns).forEach(p => {
-                    if (updatedAssigns[p] === id) delete updatedAssigns[p];
-                });
-                saveAdminData(updatedChars, updatedAssigns);
-            };
-
-            const assignPlayer = () => {
-                if (!newAssign.player || !newAssign.charId) return;
-                const updatedAssigns = { ...assignments, [newAssign.player]: newAssign.charId };
-                saveAdminData(characters, updatedAssigns);
-                setNewAssign({ player: '', charId: '' });
-            };
-
-            const removeAssignment = (player) => {
-                const updated = { ...assignments };
-                delete updated[player];
-                saveAdminData(characters, updated);
-            };
-
-            const getInviteLink = (player, charId) => {
-                const char = characters.find(c => c.id == charId);
-                if (!char) return '';
-                
-                const payload = { p: player, c: char.name, b: char.backstory };
-                const encoded = btoa(JSON.stringify(payload));
-                const baseUrl = window.location.href.split('?')[0];
-                return `${baseUrl}?invite=${encoded}`;
-            };
-
-            const shareWhatsapp = (player, charId) => {
-                const link = getInviteLink(player, charId);
-                const text = `🕵️ Confidential: Your Murder Mystery Role is ready. Open this link to access your dossier: ${link}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-            };
-
-            // --- RENDER: PLAYER VIEW (The "Sticky" Dossier) ---
-            if (mode === 'player' && myRole) {
+            if (profile) {
                 return (
-                    <div className="min-h-screen bg-slate-950 text-slate-200 p-6 flex flex-col items-center">
-                        <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
-                            {/* ID CARD HEADER */}
-                            <div className="bg-red-900 text-white p-4 rounded-t-xl shadow-lg border-b-4 border-black flex justify-between items-center">
+                    <div className="min-h-screen pb-12 px-4 pt-6 max-w-md mx-auto animate-entry">
+                        {/* HEADER */}
+                        <div className="flex justify-between items-center mb-6 border-b border-red-800 pb-2">
+                            <div>
+                                <div className="text-red-500 text-xs font-bold tracking-widest uppercase">Confidential</div>
+                                <h1 className="text-3xl text-white header-font uppercase">HX721 Manifest</h1>
+                            </div>
+                            <Plane className="text-red-500 animate-pulse" size={32} />
+                        </div>
+
+                        {/* ID CARD */}
+                        <div className="bg-gray-800 rounded-lg overflow-hidden shadow-2xl border border-gray-600 mb-6 relative">
+                            <div className="bg-red-900/80 p-4 flex justify-between items-start">
                                 <div>
-                                    <h1 className="text-xs font-bold uppercase tracking-widest opacity-75">Case File #8921</h1>
-                                    <div className="text-lg font-black uppercase">Top Secret</div>
-                                </div>
-                                <UserCheck className="opacity-50" />
-                            </div>
-
-                            {/* MAIN CONTENT */}
-                            <div className="bg-slate-800 p-6 rounded-b-xl shadow-2xl border border-slate-700 character-card">
-                                <div className="mb-6 text-center">
-                                    <div className="text-slate-400 text-sm uppercase tracking-wide mb-1">Assigned Agent</div>
-                                    <div className="text-2xl font-bold text-white">{myRole.p}</div>
-                                </div>
-
-                                <div className="bg-black/40 p-4 rounded-lg border border-red-900/30 mb-6 text-center">
-                                    <div className="text-red-400 text-xs uppercase font-bold mb-2">Your Cover Identity</div>
-                                    <div className="text-3xl font-black text-red-100 uppercase tracking-tight">{myRole.c}</div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-yellow-500/80 border-b border-slate-600 pb-2 mb-3">
-                                        <Lock size={14} />
-                                        <span className="text-xs font-bold uppercase">Backstory (Eyes Only)</span>
+                                    <p className="text-red-200 text-xs uppercase tracking-wider">Passenger Name</p>
+                                    <h2 className="text-2xl font-bold text-white uppercase">{profile.name}</h2>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="bg-black/30 px-2 py-0.5 rounded text-xs border border-red-400/30">{profile.role}</span>
+                                        <span className="bg-black/30 px-2 py-0.5 rounded text-xs border border-red-400/30">SEAT: {profile.seat}</span>
                                     </div>
-                                    <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
-                                        {myRole.b}
-                                    </p>
+                                </div>
+                                <User className="text-red-300 opacity-50" size={40} />
+                            </div>
+                            
+                            {/* KILLER REVEAL SECTION - Only shows for Leena */}
+                            {profile.isKiller && (
+                                <div className="bg-black p-4 border-y-2 border-red-600 animate-pulse">
+                                    <div className="flex items-center gap-2 text-red-500 font-bold uppercase tracking-widest mb-1">
+                                        <ShieldAlert size={20} /> Top Secret
+                                    </div>
+                                    <p className="text-white font-bold text-lg">YOU ARE THE KILLER.</p>
+                                    <p className="text-gray-400 text-sm mt-1">Do not reveal this unless caught.</p>
+                                </div>
+                            )}
+
+                            <div className="p-5 space-y-6">
+                                {/* WHO YOU ARE */}
+                                <div className="flight-border p-3 rounded-r-md">
+                                    <h3 className="text-red-400 text-sm font-bold uppercase flex items-center gap-2 mb-2">
+                                        <Briefcase size={16} /> Identity Profile
+                                    </h3>
+                                    <p className="text-gray-300 leading-relaxed text-sm">{profile.who}</p>
+                                </div>
+
+                                {/* MOTIVE */}
+                                <div className="flight-border p-3 rounded-r-md">
+                                    <h3 className="text-yellow-500 text-sm font-bold uppercase flex items-center gap-2 mb-2">
+                                        <AlertTriangle size={16} /> Potential Motive
+                                    </h3>
+                                    <p className="text-gray-300 leading-relaxed text-sm">{profile.motive}</p>
+                                </div>
+
+                                {/* SUSPICION */}
+                                <div className="flight-border p-3 rounded-r-md">
+                                    <h3 className="text-blue-400 text-sm font-bold uppercase flex items-center gap-2 mb-2">
+                                        <Eye size={16} /> Why They Suspect You
+                                    </h3>
+                                    <p className="text-gray-300 leading-relaxed text-sm">{profile.suspicion}</p>
+                                </div>
+
+                                {/* INVENTORY */}
+                                <div className="bg-black/40 p-3 rounded border border-gray-700 flex items-center gap-3">
+                                    <Briefcase className="text-gray-500" size={20} />
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase">Physical Evidence</p>
+                                        <p className="text-white text-sm font-bold">{profile.item}</p>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* FOOTER */}
-                            <div className="mt-8 text-center">
-                                <p className="text-xs text-slate-500 mb-4">This file is saved to this device.</p>
-                                <button 
-                                    onClick={() => {
-                                        if(confirm("Are you sure? This will delete your character from this phone.")) {
-                                            localStorage.removeItem('mm-my-role');
-                                            setMode('admin_login');
-                                        }
-                                    }}
-                                    className="text-slate-600 hover:text-red-400 text-xs flex items-center gap-2 mx-auto"
-                                >
-                                    <Trash2 size={12} /> Delete Data & Reset
-                                </button>
-                            </div>
                         </div>
+
+                        <button 
+                            onClick={() => { setProfile(null); setCode(''); }}
+                            className="w-full py-4 bg-gray-900 border border-red-900/50 text-red-500 rounded font-bold hover:bg-red-900/20 transition uppercase flex items-center justify-center gap-2"
+                        >
+                            <X size={16} /> Close Dossier
+                        </button>
                     </div>
                 );
             }
 
-            // --- RENDER: ADMIN LOGIN ---
-            if (mode === 'admin_login') {
-                return (
-                    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900">
-                        <div className="bg-slate-800 p-8 rounded-xl max-w-sm w-full text-center shadow-2xl">
-                            <div className="bg-red-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Lock className="text-white w-8 h-8" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Host Access</h2>
-                            <p className="text-slate-400 text-sm mb-6">Manage the mystery party.</p>
-                            
-                            <input 
-                                type="password" 
-                                placeholder="Enter Password (sam)"
-                                className="w-full p-3 rounded bg-slate-700 text-white border border-slate-600 mb-4 text-center focus:border-red-500 outline-none"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                            />
-                            <button 
-                                onClick={() => {
-                                    if (password === 'sam') { setIsAdminAuth(true); setMode('admin_panel'); } 
-                                    else { alert('Wrong password'); }
-                                }}
-                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition"
-                            >
-                                Enter Console
-                            </button>
-                        </div>
-                    </div>
-                );
-            }
-
-            // --- RENDER: ADMIN PANEL ---
+            // LOGIN SCREEN
             return (
-                <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
-                    <div className="max-w-3xl mx-auto">
-                        <header className="flex justify-between items-center mb-8 pt-4">
-                            <h1 className="text-2xl font-bold text-red-500 flex items-center gap-2">
-                                🔪 Game Master
-                            </h1>
-                            <button onClick={() => {setMode('admin_login'); setIsAdminAuth(false);}} className="text-xs text-slate-500">Logout</button>
-                        </header>
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                    <div className="absolute inset-0 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                    
+                    <div className="w-full max-w-sm bg-gray-900 p-8 rounded-xl border-2 border-gray-700 shadow-2xl relative z-10">
+                        <div className="text-center mb-8">
+                            <div className="inline-block p-3 rounded-full bg-red-900/30 mb-4 border border-red-500/30">
+                                <Lock className="text-red-500" size={32} />
+                            </div>
+                            <h1 className="text-3xl text-white header-font uppercase tracking-tight">Helvetia Air</h1>
+                            <p className="text-red-500 text-xs font-bold tracking-[0.3em] uppercase mt-1">Secure Access</p>
+                        </div>
 
-                        {/* 1. CREATE CHARACTERS */}
-                        <section className="bg-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
-                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-200">
-                                <div className="bg-blue-600 p-1 rounded"><Plus size={14}/></div> 
-                                Step 1: The Cast
-                            </h2>
-                            <div className="grid gap-3 mb-4">
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-gray-500 uppercase mb-1 ml-1">Access Code</label>
                                 <input 
-                                    className="bg-slate-900 border border-slate-700 rounded p-3"
-                                    placeholder="Character Name (e.g. The Doctor)"
-                                    value={newChar.name}
-                                    onChange={e => setNewChar({...newChar, name: e.target.value})}
+                                    type="text" 
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    placeholder="ENTER CODE (e.g. X001)"
+                                    className="w-full bg-black border border-gray-600 text-white p-4 text-center font-mono text-xl uppercase focus:border-red-500 focus:outline-none rounded tracking-widest placeholder:text-gray-700"
                                 />
-                                <textarea 
-                                    className="bg-slate-900 border border-slate-700 rounded p-3 h-20"
-                                    placeholder="Backstory & Secrets..."
-                                    value={newChar.backstory}
-                                    onChange={e => setNewChar({...newChar, backstory: e.target.value})}
-                                />
-                                <button onClick={addCharacter} className="bg-blue-600 hover:bg-blue-500 py-2 rounded font-semibold transition">Add Character</button>
                             </div>
-                            {/* List */}
-                            <div className="space-y-2">
-                                {characters.map(c => (
-                                    <div key={c.id} className="flex justify-between items-center bg-slate-700/50 px-4 py-2 rounded text-sm">
-                                        <span>{c.name}</span>
-                                        <button onClick={() => deleteCharacter(c.id)} className="text-red-400 hover:text-red-300"><Trash2 size={14}/></button>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* 2. ASSIGN & SHARE */}
-                        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-200">
-                                <div className="bg-green-600 p-1 rounded"><Share2 size={14}/></div> 
-                                Step 2: Assign & Send
-                            </h2>
                             
-                            <div className="flex gap-2 mb-6">
-                                <input 
-                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-3"
-                                    placeholder="Friend's Name"
-                                    value={newAssign.player}
-                                    onChange={e => setNewAssign({...newAssign, player: e.target.value})}
-                                />
-                                <select 
-                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-3"
-                                    value={newAssign.charId}
-                                    onChange={e => setNewAssign({...newAssign, charId: e.target.value})}
-                                >
-                                    <option value="">Select Role...</option>
-                                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                                <button onClick={assignPlayer} className="bg-green-600 px-4 rounded font-bold"><Plus/></button>
-                            </div>
+                            {error && (
+                                <div className="text-red-500 text-xs text-center font-bold animate-pulse bg-red-900/20 p-2 rounded border border-red-900">
+                                    {error}
+                                </div>
+                            )}
 
-                            <div className="space-y-3">
-                                {Object.entries(assignments).map(([player, charId]) => {
-                                    const char = characters.find(c => c.id == charId);
-                                    if(!char) return null;
-                                    return (
-                                        <div key={player} className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <div className="font-bold text-lg">{player}</div>
-                                                    <div className="text-green-400 text-sm">Role: {char.name}</div>
-                                                </div>
-                                                <button onClick={() => removeAssignment(player)} className="text-slate-600 hover:text-red-500"><Trash2 size={16}/></button>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button 
-                                                    onClick={() => shareWhatsapp(player, charId)}
-                                                    className="bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2 text-sm font-bold transition"
-                                                >
-                                                    <Share2 size={14} /> WhatsApp
-                                                </button>
-                                                <button 
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(getInviteLink(player, charId));
-                                                        alert("Link copied to clipboard!");
-                                                    }}
-                                                    className="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 text-sm font-bold transition"
-                                                >
-                                                    <Copy size={14} /> Copy Link
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                                {Object.keys(assignments).length === 0 && <div className="text-center text-slate-600 italic">No assignments yet.</div>}
-                            </div>
-                        </section>
+                            <button 
+                                type="submit" 
+                                className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-4 rounded uppercase tracking-wider transition shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
+                            >
+                                Authenticate <Plane size={16} className="rotate-90"/>
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div className="mt-8 text-center opacity-30">
+                        <p className="text-[10px] uppercase text-gray-400">Restricted Area // Flight HX721</p>
                     </div>
                 </div>
             );
         }
 
         const root = createRoot(document.getElementById('root'));
-        root.render(<MurderMysteryApp />);
+        root.render(<App />);
     </script>
 </body>
 </html>

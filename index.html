@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Murder Mystery Enforcer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; }
+        .character-card {
+            background-image: repeating-linear-gradient(45deg, #1e293b 0, #1e293b 10px, #0f172a 10px, #0f172a 20px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+        import { Users, Trash2, Plus, Share2, Lock, Copy, RefreshCw, ExternalLink, UserCheck } from 'https://esm.sh/lucide-react@0.263.1';
+
+        function MurderMysteryApp() {
+            // --- STATE ---
+            const [mode, setMode] = useState('loading'); // loading, admin, player
+            const [isAdminAuth, setIsAdminAuth] = useState(false);
+            const [password, setPassword] = useState('');
+            
+            // Admin Data
+            const [characters, setCharacters] = useState([]);
+            const [assignments, setAssignments] = useState({}); 
+            
+            // Player Data
+            const [myRole, setMyRole] = useState(null);
+
+            // Admin UI
+            const [newChar, setNewChar] = useState({ name: '', backstory: '' });
+            const [newAssign, setNewAssign] = useState({ player: '', charId: '' });
+
+            // --- INITIALIZATION ---
+            useEffect(() => {
+                // 1. Check for Incoming Invite Link (URL Params)
+                const params = new URLSearchParams(window.location.search);
+                const inviteData = params.get('invite');
+
+                if (inviteData) {
+                    try {
+                        // Decode and SAVE to local storage (The "Sticky" part)
+                        const decoded = JSON.parse(atob(inviteData));
+                        localStorage.setItem('mm-my-role', JSON.stringify(decoded));
+                        
+                        // Clean the URL so it looks professional (removes the long code)
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        
+                        setMyRole(decoded);
+                        setMode('player');
+                        return;
+                    } catch (e) {
+                        console.error("Bad Link");
+                    }
+                }
+
+                // 2. Check if Player already has a saved role
+                const savedRole = localStorage.getItem('mm-my-role');
+                if (savedRole) {
+                    setMyRole(JSON.parse(savedRole));
+                    setMode('player');
+                    return;
+                }
+
+                // 3. Check if Admin Data exists
+                const savedChars = localStorage.getItem('mm-characters');
+                const savedAssigns = localStorage.getItem('mm-assignments');
+                if (savedChars) setCharacters(JSON.parse(savedChars));
+                if (savedAssigns) setAssignments(JSON.parse(savedAssigns));
+                
+                // Default to Admin login if no player data found
+                setMode('admin_login');
+            }, []);
+
+            // --- ADMIN LOGIC ---
+            const saveAdminData = (chars, assigns) => {
+                setCharacters(chars);
+                setAssignments(assigns);
+                localStorage.setItem('mm-characters', JSON.stringify(chars));
+                localStorage.setItem('mm-assignments', JSON.stringify(assigns));
+            };
+
+            const addCharacter = () => {
+                if (!newChar.name) return;
+                const updated = [...characters, { id: Date.now(), ...newChar }];
+                saveAdminData(updated, assignments);
+                setNewChar({ name: '', backstory: '' });
+            };
+
+            const deleteCharacter = (id) => {
+                const updatedChars = characters.filter(c => c.id !== id);
+                const updatedAssigns = { ...assignments };
+                Object.keys(updatedAssigns).forEach(p => {
+                    if (updatedAssigns[p] === id) delete updatedAssigns[p];
+                });
+                saveAdminData(updatedChars, updatedAssigns);
+            };
+
+            const assignPlayer = () => {
+                if (!newAssign.player || !newAssign.charId) return;
+                const updatedAssigns = { ...assignments, [newAssign.player]: newAssign.charId };
+                saveAdminData(characters, updatedAssigns);
+                setNewAssign({ player: '', charId: '' });
+            };
+
+            const removeAssignment = (player) => {
+                const updated = { ...assignments };
+                delete updated[player];
+                saveAdminData(characters, updated);
+            };
+
+            const getInviteLink = (player, charId) => {
+                const char = characters.find(c => c.id == charId);
+                if (!char) return '';
+                
+                const payload = { p: player, c: char.name, b: char.backstory };
+                const encoded = btoa(JSON.stringify(payload));
+                const baseUrl = window.location.href.split('?')[0];
+                return `${baseUrl}?invite=${encoded}`;
+            };
+
+            const shareWhatsapp = (player, charId) => {
+                const link = getInviteLink(player, charId);
+                const text = `🕵️ Confidential: Your Murder Mystery Role is ready. Open this link to access your dossier: ${link}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            };
+
+            // --- RENDER: PLAYER VIEW (The "Sticky" Dossier) ---
+            if (mode === 'player' && myRole) {
+                return (
+                    <div className="min-h-screen bg-slate-950 text-slate-200 p-6 flex flex-col items-center">
+                        <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
+                            {/* ID CARD HEADER */}
+                            <div className="bg-red-900 text-white p-4 rounded-t-xl shadow-lg border-b-4 border-black flex justify-between items-center">
+                                <div>
+                                    <h1 className="text-xs font-bold uppercase tracking-widest opacity-75">Case File #8921</h1>
+                                    <div className="text-lg font-black uppercase">Top Secret</div>
+                                </div>
+                                <UserCheck className="opacity-50" />
+                            </div>
+
+                            {/* MAIN CONTENT */}
+                            <div className="bg-slate-800 p-6 rounded-b-xl shadow-2xl border border-slate-700 character-card">
+                                <div className="mb-6 text-center">
+                                    <div className="text-slate-400 text-sm uppercase tracking-wide mb-1">Assigned Agent</div>
+                                    <div className="text-2xl font-bold text-white">{myRole.p}</div>
+                                </div>
+
+                                <div className="bg-black/40 p-4 rounded-lg border border-red-900/30 mb-6 text-center">
+                                    <div className="text-red-400 text-xs uppercase font-bold mb-2">Your Cover Identity</div>
+                                    <div className="text-3xl font-black text-red-100 uppercase tracking-tight">{myRole.c}</div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-yellow-500/80 border-b border-slate-600 pb-2 mb-3">
+                                        <Lock size={14} />
+                                        <span className="text-xs font-bold uppercase">Backstory (Eyes Only)</span>
+                                    </div>
+                                    <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
+                                        {myRole.b}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* FOOTER */}
+                            <div className="mt-8 text-center">
+                                <p className="text-xs text-slate-500 mb-4">This file is saved to this device.</p>
+                                <button 
+                                    onClick={() => {
+                                        if(confirm("Are you sure? This will delete your character from this phone.")) {
+                                            localStorage.removeItem('mm-my-role');
+                                            setMode('admin_login');
+                                        }
+                                    }}
+                                    className="text-slate-600 hover:text-red-400 text-xs flex items-center gap-2 mx-auto"
+                                >
+                                    <Trash2 size={12} /> Delete Data & Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- RENDER: ADMIN LOGIN ---
+            if (mode === 'admin_login') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-900">
+                        <div className="bg-slate-800 p-8 rounded-xl max-w-sm w-full text-center shadow-2xl">
+                            <div className="bg-red-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Lock className="text-white w-8 h-8" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white mb-2">Host Access</h2>
+                            <p className="text-slate-400 text-sm mb-6">Manage the mystery party.</p>
+                            
+                            <input 
+                                type="password" 
+                                placeholder="Enter Password (sam)"
+                                className="w-full p-3 rounded bg-slate-700 text-white border border-slate-600 mb-4 text-center focus:border-red-500 outline-none"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                            />
+                            <button 
+                                onClick={() => {
+                                    if (password === 'sam') { setIsAdminAuth(true); setMode('admin_panel'); } 
+                                    else { alert('Wrong password'); }
+                                }}
+                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition"
+                            >
+                                Enter Console
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- RENDER: ADMIN PANEL ---
+            return (
+                <div className="min-h-screen bg-slate-900 text-white p-4 pb-20">
+                    <div className="max-w-3xl mx-auto">
+                        <header className="flex justify-between items-center mb-8 pt-4">
+                            <h1 className="text-2xl font-bold text-red-500 flex items-center gap-2">
+                                🔪 Game Master
+                            </h1>
+                            <button onClick={() => {setMode('admin_login'); setIsAdminAuth(false);}} className="text-xs text-slate-500">Logout</button>
+                        </header>
+
+                        {/* 1. CREATE CHARACTERS */}
+                        <section className="bg-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
+                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-200">
+                                <div className="bg-blue-600 p-1 rounded"><Plus size={14}/></div> 
+                                Step 1: The Cast
+                            </h2>
+                            <div className="grid gap-3 mb-4">
+                                <input 
+                                    className="bg-slate-900 border border-slate-700 rounded p-3"
+                                    placeholder="Character Name (e.g. The Doctor)"
+                                    value={newChar.name}
+                                    onChange={e => setNewChar({...newChar, name: e.target.value})}
+                                />
+                                <textarea 
+                                    className="bg-slate-900 border border-slate-700 rounded p-3 h-20"
+                                    placeholder="Backstory & Secrets..."
+                                    value={newChar.backstory}
+                                    onChange={e => setNewChar({...newChar, backstory: e.target.value})}
+                                />
+                                <button onClick={addCharacter} className="bg-blue-600 hover:bg-blue-500 py-2 rounded font-semibold transition">Add Character</button>
+                            </div>
+                            {/* List */}
+                            <div className="space-y-2">
+                                {characters.map(c => (
+                                    <div key={c.id} className="flex justify-between items-center bg-slate-700/50 px-4 py-2 rounded text-sm">
+                                        <span>{c.name}</span>
+                                        <button onClick={() => deleteCharacter(c.id)} className="text-red-400 hover:text-red-300"><Trash2 size={14}/></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* 2. ASSIGN & SHARE */}
+                        <section className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-200">
+                                <div className="bg-green-600 p-1 rounded"><Share2 size={14}/></div> 
+                                Step 2: Assign & Send
+                            </h2>
+                            
+                            <div className="flex gap-2 mb-6">
+                                <input 
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-3"
+                                    placeholder="Friend's Name"
+                                    value={newAssign.player}
+                                    onChange={e => setNewAssign({...newAssign, player: e.target.value})}
+                                />
+                                <select 
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded p-3"
+                                    value={newAssign.charId}
+                                    onChange={e => setNewAssign({...newAssign, charId: e.target.value})}
+                                >
+                                    <option value="">Select Role...</option>
+                                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                                <button onClick={assignPlayer} className="bg-green-600 px-4 rounded font-bold"><Plus/></button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {Object.entries(assignments).map(([player, charId]) => {
+                                    const char = characters.find(c => c.id == charId);
+                                    if(!char) return null;
+                                    return (
+                                        <div key={player} className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <div className="font-bold text-lg">{player}</div>
+                                                    <div className="text-green-400 text-sm">Role: {char.name}</div>
+                                                </div>
+                                                <button onClick={() => removeAssignment(player)} className="text-slate-600 hover:text-red-500"><Trash2 size={16}/></button>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button 
+                                                    onClick={() => shareWhatsapp(player, charId)}
+                                                    className="bg-green-600 hover:bg-green-500 text-white py-2 rounded flex items-center justify-center gap-2 text-sm font-bold transition"
+                                                >
+                                                    <Share2 size={14} /> WhatsApp
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(getInviteLink(player, charId));
+                                                        alert("Link copied to clipboard!");
+                                                    }}
+                                                    className="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded flex items-center justify-center gap-2 text-sm font-bold transition"
+                                                >
+                                                    <Copy size={14} /> Copy Link
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                {Object.keys(assignments).length === 0 && <div className="text-center text-slate-600 italic">No assignments yet.</div>}
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<MurderMysteryApp />);
+    </script>
+</body>
+</html>
